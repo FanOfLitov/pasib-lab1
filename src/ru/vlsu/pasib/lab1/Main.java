@@ -1,17 +1,35 @@
 package ru.vlsu.pasib.lab1;
 
 import ru.vlsu.pasib.lab1.model.User;
+import ru.vlsu.pasib.lab1.security.PasswordPolicy;
+import ru.vlsu.pasib.lab1.security.PasswordPolicy.CheckResult;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
 public class Main {
-    public static void main(String[] args){
+    public static void main(String[] args) {
         User admin = User.createAdmin();
         admin.setRestrictionsEnabled(true);
         admin.setMinLength(10);
         admin.setBlocked(false);
+
+        String[] candidates = {
+                "Qwerty1!",      // должен пройти всё
+                "qwerty1!",      // нет прописной
+                "Qwerty11",      // повтор '1' и нет знака препинания
+                "Qw1!",          // слишком короткий
+                ""               // пустой
+        };
+
+        for (String pwd : candidates) {
+            System.out.println("=== Пароль: \"" + pwd + "\" ===");
+            CheckResult result = PasswordPolicy.check(pwd, 8);
+            System.out.print(result.toReport());
+            System.out.println("ИТОГ: " + (result.allPassed() ? "принят" : "ОТКЛОНЁН"));
+            System.out.println();
+        }
 
         String line = admin.toFileLine();
         System.out.println("В файл:   " + line);
@@ -42,20 +60,19 @@ public class Main {
             System.out.println("Инъекция отбита: " + e.getMessage());
         }
 
-        try{
+        try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-
-        } catch(Exception e){
-            System.err.println("Не удалось системный стиль включить " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Не удалось системный стиль включить: " + e.getMessage());
         }
 
-        SwingUtilities.invokeLater(() ->{
-                JOptionPane.showMessageDialog(
-                        null,
-                        "Проект созданб окружение работает",
-                        "ПАСЗИ, лабораторная 1",
-                        JOptionPane.INFORMATION_MESSAGE
-                );
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(
+                    null,
+                    "Проект создан, окружение работает",
+                    "ПАСЗИ, лабораторная 1",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
         });
     }
 }
