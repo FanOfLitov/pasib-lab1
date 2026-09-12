@@ -1,8 +1,11 @@
 package ru.vlsu.pasib.lab1.ui;
 
+import ru.vlsu.pasib.lab1.log.AuditLog;
+import ru.vlsu.pasib.lab1.cert.CertificateAuthority;
 import ru.vlsu.pasib.lab1.model.User;
 import ru.vlsu.pasib.lab1.store.UserStore;
-
+import ru.vlsu.pasib.lab1.cert.UserCertificate;
+import ru.vlsu.pasib.lab1.cert.UsbService;
 import javax.swing.*;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.EmptyBorder;
@@ -77,6 +80,8 @@ public class MainFrame extends JFrame {
     }
 
     private JMenuBar createMenuBar() {
+
+
         JMenuBar menuBar = new JMenuBar();
 
         JMenu menuFile = new JMenu("Файл");
@@ -95,6 +100,7 @@ public class MainFrame extends JFrame {
         menuAdmin = new JMenu("Пользователи");
         JMenuItem miAdd = new JMenuItem("Добавить пользователя...");
         miAdd.addActionListener(e -> onAddUser());
+
 
         JMenuItem miBlock = new JMenuItem("Блокировать / Разблокировать");
         miBlock.addActionListener(e -> onToggleBlock());
@@ -118,6 +124,16 @@ public class MainFrame extends JFrame {
         menuHelp.add(miAbout);
         menuBar.add(menuHelp);
 
+        JMenuItem miCert = new JMenuItem("Выпустить USB-сертификат...");
+        miCert.addActionListener(e -> onIssueCertificate());
+
+        JMenuItem miDrive = new JMenuItem("Настройка USB-диска...");
+        miDrive.addActionListener(e -> onConfigureUsbDrive());
+
+        menuAdmin.addSeparator();
+        menuAdmin.add(miCert);
+        menuAdmin.add(miDrive);
+
         return menuBar;
     }
 
@@ -130,6 +146,9 @@ public class MainFrame extends JFrame {
         toolBar.add(btnChangePass);
 
         toolBar.addSeparator();
+        JButton btnCert = new JButton("Выпуск USB-ключа");
+        btnCert.addActionListener(e -> onIssueCertificate());
+        toolBar.add(btnCert);
 
         btnAddUser = new JButton("Добавить");
         btnAddUser.addActionListener(e -> onAddUser());
@@ -202,6 +221,7 @@ public class MainFrame extends JFrame {
         ChangePasswordDialog dialog = new ChangePasswordDialog(this, currentUser, userStore);
         dialog.setVisible(true);
         if (dialog.isSuccess()) {
+            AuditLog.info("Пользователь '" + currentUser.getUsername() + "' сменил пароль");
             refreshTable();
         }
     }
@@ -218,6 +238,7 @@ public class MainFrame extends JFrame {
 
         try {
             userStore.addUser(name.trim());
+            AuditLog.info("ADMIN добавил ппользователя  '"+ name.trim() +"'");
             refreshTable();
             JOptionPane.showMessageDialog(this,
                     "Пользователь '" + name.trim() + "' успешно добавлен с пустым паролем!",
@@ -246,6 +267,7 @@ public class MainFrame extends JFrame {
         boolean newState = !target.isBlocked();
         try {
             userStore.setBlocked(target.getUsername(), newState);
+            AuditLog.info("ADMIN " + (newState ? "заблокировал":"разблокировал")+ " '" + target.getUsername() + "'");
             refreshTable();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Ошибка: " + ex.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
@@ -259,6 +281,7 @@ public class MainFrame extends JFrame {
         boolean newState = !target.isRestrictionsEnabled();
         try {
             userStore.setRestrictionsEnabled(target.getUsername(), newState);
+            AuditLog.info("ADMIN" + (newState ? "включил":"выключил") + " ограничения пароля для'" + target.getUsername() + "'");
             refreshTable();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Ошибка: " + ex.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
@@ -297,7 +320,64 @@ public class MainFrame extends JFrame {
     }
 
     private void onExit() {
+        AuditLog.info("Выход пользователя '" + currentUser.getUsername() + "'");
         dispose();
         System.exit(0);
+    }
+
+    private void onIssueCertificate() {
+        User target = getSelectedUserOrWarn();
+        if (target == null) return;
+
+        String currentDrive = UsbService.getConfiguredDrive();
+        String drive = JOptionPane.showInputDialog(this,
+                "Введите букву диска / путь к USB для записи сертификата:",
+                currentDrive);
+
+        if (drive == null || drive.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            UserCertificate cert = CertificateAuthority.issueCertificate(target.getUsername(), 30);
+
+
+            UsbService.writeCertificateToDrive(drive.trim(), cert);
+
+            target.setUseCertificate(true);
+            userStore.save();
+            refreshTable();
+
+            AuditLog.info("ADMIN выпустил USB-сертификат для '" + target.getUsername() + "'");
+
+            JOptionPane.showMessageDialog(this,
+                    "Сертификат успешно выпущен и сохранён на " + drive.trim() + "!\n" + cert,
+                    "Успех",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Ошибка выпуска/записи сертификата: " + ex.getMessage(),
+                    "Ошибка",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void onConfigureUsbDrive() {
+        String currentDrive = UsbService.getConfiguredDrive();
+        String newDrive = JOptionPane.showInputDialog(this,
+                "Текущий рабочий диск для сертификатов:\n(например, E:\\ или C:\\temp)",
+                currentDrive);
+
+        if (newDrive != null && !newDrive.trim().isEmpty()) {
+            try {
+                UsbService.saveConfiguredDrive(newDrive.trim());
+                JOptionPane.showMessageDialog(this,
+                        "Настройки сохранены! Рабочий диск: " + newDrive.trim(),
+                        "Настройки",
+                        JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Ошибка сохранения настроек: " + ex.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 }
