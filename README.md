@@ -88,3 +88,6 @@ src/ru/vlsu/pasib/lab1/
 5. Выйти, нажать «Вход по USB-сертификату»
 
 
+<img width="351" height="222" alt="изображение" src="https://github.com/user-attachments/assets/946defd7-295a-4c0c-955c-78fbc07a8432" />
+
+
