@@ -55,26 +55,26 @@ public class LoginDialog extends JDialog {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Строка 1: Имя пользователя
+
         gbc.gridx = 0; gbc.gridy = 0;
         formPanel.add(new JLabel("Имя пользователя:"), gbc);
         gbc.gridx = 1;
         formPanel.add(tfUsername, gbc);
 
-        // Строка 2: Пароль
+
         gbc.gridx = 0; gbc.gridy = 1;
         formPanel.add(new JLabel("Пароль:"), gbc);
         gbc.gridx = 1;
         formPanel.add(pfPassword, gbc);
 
-        // Строка 3: Кнопка USB-входа
+
         gbc.gridx = 0; gbc.gridy = 2;
         gbc.gridwidth = 2;
         formPanel.add(btnUsbLogin, gbc);
 
         rootPanel.add(formPanel, BorderLayout.CENTER);
 
-        // Панель кнопок внизу
+
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         buttonPanel.add(btnLogin);
         buttonPanel.add(btnExit);
@@ -134,7 +134,7 @@ public class LoginDialog extends JDialog {
             return;
         }
 
-        // Если для пользователя включен вход ТОЛЬКО по сертификату
+
         if (user.isUseCertificate()) {
             JOptionPane.showMessageDialog(this,
                     "Для пользователя '" + user.getUsername() + "' установлен вход строго по USB-сертификату!\n"
@@ -174,11 +174,22 @@ public class LoginDialog extends JDialog {
     private void tryUsbLogin() {
         String targetDrive = UsbService.getConfiguredDrive();
 
+        if (targetDrive == null) {
+            JOptionPane.showMessageDialog(this,
+                    "USB-диск не настроен.\nADMIN → Настройка USB-диска → E:\\",
+                    "Нет настроек", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String usernameHint = tfUsername.getText().trim();
+
+
+
         try {
 
-            UserCertificate cert = UsbService.readCertificateFromDrive(targetDrive);
+            UserCertificate cert;
+            cert = UsbService.readCertificateFromDrive(targetDrive, usernameHint);
 
-            // Проверяем валидность цифровой подписи УЦ и срок действия
             if (!CertificateAuthority.verifyCertificate(cert)) {
                 AuditLog.security("Отклонен невалидный/просроченный сертификат с диска " + targetDrive);
                 JOptionPane.showMessageDialog(this,
@@ -188,15 +199,16 @@ public class LoginDialog extends JDialog {
                 return;
             }
 
-            //  Ищем пользователя в базе
+
             String username = cert.getSubjectName();
+
             Optional<User> userOpt = userStore.findByUsername(username);
 
             if (userOpt.isEmpty()) {
                 AuditLog.warn("USB-сертификат: владелец '" + username + "' не найден в базе");
                 JOptionPane.showMessageDialog(this,
-                        "Владелец сертификата '" + username + "' не найден в локальной базе!",
-                        "Ошибка идентификации",
+                        "Владелец сертификата '" + username + "' не найден в локальной базе\n" + "Добавьте пользователя под ADMIN",
+                        "Нет в бд",
                         JOptionPane.ERROR_MESSAGE);
                 return;
             }
@@ -204,6 +216,7 @@ public class LoginDialog extends JDialog {
             User user = userOpt.get();
 
             if (user.isBlocked()) {
+                AuditLog.security("USB: блокировка '" + username + "'");
                 JOptionPane.showMessageDialog(this,
                         "Учётная запись '" + user.getUsername() + "' заблокирована администратором!",
                         "Доступ запрещён",

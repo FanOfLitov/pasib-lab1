@@ -130,6 +130,9 @@ public class MainFrame extends JFrame {
         JMenuItem miDrive = new JMenuItem("Настройка USB-диска...");
         miDrive.addActionListener(e -> onConfigureUsbDrive());
 
+        JMenuItem miDelete = new JMenuItem("Удалить пользователя...");
+        miDelete.addActionListener(e -> onDeleteUser());
+        menuAdmin.add(miDelete);
         menuAdmin.addSeparator();
         menuAdmin.add(miCert);
         menuAdmin.add(miDrive);
@@ -334,6 +337,7 @@ public class MainFrame extends JFrame {
                 "Введите букву диска / путь к USB для записи сертификата:",
                 currentDrive);
 
+
         if (drive == null || drive.trim().isEmpty()) {
             return;
         }
@@ -342,7 +346,8 @@ public class MainFrame extends JFrame {
             UserCertificate cert = CertificateAuthority.issueCertificate(target.getUsername(), 30);
 
 
-            UsbService.writeCertificateToDrive(drive.trim(), cert);
+            UsbService.saveConfiguredDrive(drive.trim());
+            UsbService.writeCertificateToDrive(drive.trim(), target.getUsername(), cert);
 
             target.setUseCertificate(true);
             userStore.save();
@@ -360,6 +365,7 @@ public class MainFrame extends JFrame {
                     "Ошибка",
                     JOptionPane.ERROR_MESSAGE);
         }
+
     }
 
     private void onConfigureUsbDrive() {
@@ -378,6 +384,29 @@ public class MainFrame extends JFrame {
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Ошибка сохранения настроек: " + ex.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
             }
+        }
+    }
+
+    private void onDeleteUser(){
+        User target = getSelectedUserOrWarn();
+        if(target == null) return;
+
+        if(target.isAdmin()){
+            JOptionPane.showMessageDialog(this, "Удаление учетной записи администратора запрещено СРД", "Ошибка", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this, "Удалить пользователя '" + target.getUsername() + "'?\n"+ "Опперация необратима. Рекомендуемая альтернатива - блокировка.", "Подтверждение удаления", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirm != JOptionPane.YES_OPTION){
+            return;
+        }
+        try{
+            userStore.removeUser(target.getUsername());
+            AuditLog.info("ADMIN удалил пользователя '" +target.getUsername() + "'");
+            refreshTable();
+        } catch (Exception ex){
+            JOptionPane.showMessageDialog(this, "Ошибка: " + ex.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
         }
     }
 }

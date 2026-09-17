@@ -80,11 +80,13 @@ public class UserStore {
     }
 
     public Optional<User> findByUsername(String username){
-        if(username == null){
+        if(username == null || username.trim().isEmpty()){
             return Optional.empty();
         }
+        String normalized = username.trim();
+
         for (User u :users){
-            if(u.getUsername().equalsIgnoreCase(username.trim())){
+            if(u.getUsername().equalsIgnoreCase(normalized)){
                 return Optional.of(u);
             }
         }
@@ -138,6 +140,16 @@ public class UserStore {
         User user = findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("Пользователь '" + username + "' не найден"));
         user.setRestrictionsEnabled(enabled);
+        save();
+    }
+
+    public void removeUser(String username) throws IOException {
+        User user = findByUsername(username).orElseThrow(() -> new IllegalArgumentException("Пользователь '" + username + "' не найден"));
+        if (user.isAdmin()){
+            throw new IllegalStateException("Нельзя удалить учетную запись администратора (ADMIN)");
+        }
+
+        users.remove(user);
         save();
     }
 }

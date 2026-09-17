@@ -34,3 +34,4 @@ test_users.dat
 audit.log
 config.properties
 auth.cert
+ca_keystore.dat
