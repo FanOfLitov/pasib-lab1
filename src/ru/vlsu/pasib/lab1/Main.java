@@ -18,14 +18,14 @@ public class Main {
         } catch (Exception ignored) {
         }
 
-        // Хук на аварийное/нормальное завершение JVM
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            AuditLog.info("=== Завершение работы СРД ===");
+            AuditLog.info(" Завершение работы СРД");
         }));
 
         SwingUtilities.invokeLater(() -> {
             try {
-                AuditLog.info("=== Запуск СРД ===");
+                AuditLog.info("Запуск СРД");
 
                 UserStore userStore = new UserStore();
                 userStore.loadOrCreate();
